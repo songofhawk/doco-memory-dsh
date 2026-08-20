@@ -1,0 +1,6 @@
+# doco-memory-dsh 作为 dsh bundle 的挂载补丁。
+# 挂载后按序 apply 这个 insert 行，把本插件挂进 profile 层栈。
+# 注意：本插件依赖 doco-dsh 提供的 `doco` 服务，须同时挂载 doco-dsh。
+- insert:
+    - id: doco-memory
+      name: 'doco-memory-dsh'
