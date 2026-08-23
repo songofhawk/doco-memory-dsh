@@ -103,6 +103,29 @@ export async function locateManifest(doco, kbId) {
   }
 }
 
+/**
+ * 项目维度需要权威 manifest：缓存的副本可能早于外部登记（如 init 之后才注册项目）。
+ * 每个状态只尽力刷新一次；任何失败都不得阻塞调用方（降级沿用旧缓存）。
+ * @param {{ doco: import('./types.js').DocoService; memory: { manifest?: unknown; manifest_doc_id?: string|null; kb_id?: string; projects_checked?: boolean } | null }} state
+ * @param {string} kbId
+ */
+export async function ensureProjectsFresh(state, kbId) {
+  if (!state?.memory?.manifest) return;
+  if (state.memory.projects_checked) return;
+  state.memory.projects_checked = true;
+  try {
+    const docId = state.memory.manifest_doc_id
+      || (await locateManifest(state.doco, kbId))?.doc_id
+      || null;
+    if (!docId) return;
+    const loaded = await loadManifest(state.doco, kbId, { manifestDocId: docId });
+    if (loaded.ok) {
+      state.memory.manifest = loaded.manifest;
+      state.memory.manifest_doc_id = loaded.doc_id;
+    }
+  } catch { /* 尽力而为：刷新失败沿用旧缓存 */ }
+}
+
 /** 递归找 folder 名为 _meta 下标题为 manifest 的文档。 */
 function findMetaManifestInFolders(folders, parentFolderId) {
   for (const folder of folders) {

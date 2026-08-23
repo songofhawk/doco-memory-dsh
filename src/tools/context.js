@@ -4,7 +4,7 @@
  * 读取 profile（用户画像）+ 当前项目 episodes 近期条目，在 token 预算内返回，
  * 用于会话开场对齐（角色/偏好/约定/近期经验）。
  */
-import { loadManifest } from '../manifest.js';
+import { ensureProjectsFresh, loadManifest } from '../manifest.js';
 import { recordCite } from '../usage.js';
 import { normalizeKbId, textBlock, toNumInRange } from './shared.js';
 import { resolveProject } from './recall.js';
@@ -40,6 +40,10 @@ export function createDocoMemoryContext({ state, name }) {
       if (!manifest || !kbId) {
         return state.doco.errorValue('doco_memory_not_initialized', '尚未初始化记忆库。', '先执行 doco_memory_init。');
       }
+
+      // 项目解析前尽力刷新缓存（工作区自动匹配依赖最新 projects 登记）
+      await ensureProjectsFresh(state, kbId);
+      manifest = state.memory?.manifest ?? manifest;
 
       let projectKey = null;
       if (String(args?.project ?? '').toLowerCase() === 'global') {

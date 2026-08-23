@@ -5,7 +5,7 @@
  * 支持 promote 参数（project→global 升级，spec §10 触发 A）。
  * 条目文本带元信息前缀：[日期 | 项目 | 来源]。
  */
-import { loadManifest } from '../manifest.js';
+import { ensureProjectsFresh, loadManifest } from '../manifest.js';
 import { recordCite } from '../usage.js';
 import { errorValue, toErrorValue } from '../errors.js';
 import { normalizeKbId, textBlock, toString } from './shared.js';
@@ -71,6 +71,11 @@ export function createDocoMemoryRemember({ state, name }) {
       if (scopeRaw === 'global') projectKey = 'global';
       else if (args?.project) projectKey = String(args.project);
       else projectKey = 'global'; // 未解析出项目时 fallback global（避免写到无处）
+      if (projectKey !== 'global') {
+        // 项目维度需要权威 manifest：缓存可能早于外部登记（spec D2）
+        await ensureProjectsFresh(state, kbId);
+        manifest = state.memory?.manifest ?? manifest;
+      }
 
       // ---- 写前查重（spec §8.1）----
       let dupes = [];

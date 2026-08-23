@@ -3,7 +3,7 @@
  * doco_memory_recall：记忆库内检索，自动限定当前 project + global scope，带引用返回。
  * 会话内命中（被实际用于回答）由上层调用 recordCite 计入 usage 台账。
  */
-import { loadManifest } from '../manifest.js';
+import { ensureProjectsFresh, loadManifest } from '../manifest.js';
 import { recordCite } from '../usage.js';
 import { normalizeKbId, textBlock, toNumInRange } from './shared.js';
 
@@ -68,6 +68,10 @@ export function createDocoMemoryRecall({ state, name }) {
       if (!manifest || !kbId) {
         return state.doco.errorValue('doco_memory_not_initialized', '尚未初始化记忆库。', '先执行 doco_memory_init。');
       }
+
+      // 项目解析前尽力刷新缓存（工作区自动匹配依赖最新 projects 登记）
+      await ensureProjectsFresh(state, kbId);
+      manifest = state.memory?.manifest ?? manifest;
 
       // 项目解析
       let projectKey = null;
