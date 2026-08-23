@@ -1,0 +1,28 @@
+name: Publish
+
+# 推送 main 即发布当前版本到 npm。
+# 注意：同版本重复发布会失败（npm 不允许覆盖），发布新版本请先 bump package.json。
+# 前置：仓库 Settings → Secrets → Actions 里配置 NPM_TOKEN（automation 类型 token）。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    if: github.repository == 'songofhawk/doco-memory-dsh'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # npm provenance 需要
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+      - run: npm ci
+      - run: npm test
+      - run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
