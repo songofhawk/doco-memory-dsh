@@ -9,7 +9,11 @@
  *
  * 契约红线：不删除、不移动、不整篇覆盖已有内容；一切写入带幂等键 / If-Match；
  * 需要 knowledge-bases:write（新建/接管文件夹）与 documents:write（建文档）。
+ *
+ * 幂等键纪律：HTTP 头仅允许 ASCII，且不同目录下的同名 living doc 不能撞键——
+ * 因此键一律由 sha256(scope|name) 派生，scope 含 kb/父目录。
  */
+import { createHash } from 'node:crypto';
 import { errorValue, toErrorValue } from './errors.js';
 import {
   MANIFEST_SCHEMA, META_FOLDER_NAME, MANIFEST_TITLE,
@@ -19,6 +23,17 @@ import {
 
 /** @typedef {import('./types.js').DocoService} DocoService */
 /** @typedef {import('./types.js').Manifest} Manifest */
+
+/**
+ * ASCII 安全的幂等键：prefix + sha256(parts.join('|')) 前 24 位十六进制。
+ * HTTP 头仅允许 ASCII（中文标题直接进头会被 fetch 拒绝）；
+ * 作用域包含 kb / 父目录，避免不同目录下的同名 living doc（如两个 global）撞键。
+ * @param {string} prefix
+ * @param {...(string|number|null|undefined)} parts
+ */
+function idemKey(prefix, ...parts) {
+  return prefix + createHash('sha256').update(parts.map((p) => String(p ?? '')).join('|')).digest('hex').slice(0, 24);
+}
 
 /**
  * 分析既有树结构：返回各约定文件夹/文档的现存情况与 id。
@@ -67,7 +82,7 @@ export async function ensureFolder(doco, kbId, name, parentId, existing) {
   const body = { name, knowledge_base_id: kbId, ...(parentId ? { parent_id: parentId } : {}) };
   const resp = await doco.getClient().request('POST', '/folders', {
     body,
-    headers: { 'Idempotency-Key': `dm-init-folder-${name}` },
+    headers: { 'Idempotency-Key': idemKey('dm-init-folder-', kbId, parentId, name) },
   });
   const folder = resp?.data ?? {};
   const id = String(folder.id ?? '');
@@ -87,7 +102,7 @@ export async function ensureDocument(doco, kbId, title, folderId, existing) {
   if (existing[title]?.id) return { id: String(existing[title].id), created: false };
   const resp = await doco.getClient().createDocument(
     { title, knowledge_base_id: kbId, ...(folderId ? { folder_id: folderId } : {}), document_type: 'document' },
-    { idempotencyKey: `dm-init-doc-${title}` },
+    { idempotencyKey: idemKey('dm-init-doc-', kbId, folderId, title) },
   );
   const doc = resp?.data ?? {};
   const id = String(doc.id ?? doc.document_id ?? '');
@@ -197,7 +212,13 @@ export async function provisionMemory(doco, opts = {}) {
     const manifestDoc = await ensureDocument(doco, kbId, MANIFEST_TITLE, metaFolderId, existing.docsByTitle);
     if (manifestDoc.created) {
       const markdown = manifestToMarkdown(manifest);
-      await doco.getClient().putContent(manifestDoc.id, { format: 'markdown', content: markdown });
+      // 新建文档在服务端已有初始正文（非空块），PUT 必须带 If-Match，否则 428 precondition_required。
+      const cur = await doco.getClient().getContent(manifestDoc.id, 'markdown');
+      await doco.getClient().putContent(
+        manifestDoc.id,
+        { format: 'markdown', content: markdown },
+        { ifMatch: cur.etag || undefined },
+      );
     }
 
     return { ok: true, result: { kb_id: kbId, kb_name: kbNameResolved, mode: kbMode, manifest, manifest_doc_id: manifestDoc.id } };
