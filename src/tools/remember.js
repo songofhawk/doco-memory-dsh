@@ -171,13 +171,13 @@ export function createDocoMemoryRemember({ state, name }) {
   };
 }
 
-/** @param {import('../types.js').Manifest} manifest @param {string} type @param {string} projectKey */
+/**
+ * preview 展示与 commit 落位必须一致：直接复用 resolveTargetDocId，
+ * 避免「预览显示占位符（episodes/<key>）、实际写到项目文档」的偏差。
+ * @param {import('../types.js').Manifest} manifest @param {string} type @param {string} projectKey
+ */
 function describeTarget(manifest, type, projectKey) {
-  if (type === 'episodes') return projectKey === 'global' ? manifest.layout.episodes.global_doc : `episodes/<${projectKey}>`;
-  if (type === 'facts') return manifest.layout.facts.global_doc ?? 'facts/global';
-  if (type === 'profile') return manifest.layout.profile.doc;
-  if (type === 'runbooks') return manifest.layout.runbooks.doc ?? 'runbooks';
-  return '(未知)';
+  return resolveTargetDocId(manifest, type, projectKey);
 }
 
 /** @param {import('../types.js').Manifest} manifest @param {string} type @param {string} projectKey */
