@@ -1,6 +1,6 @@
 {
   "name": "doco-memory-dsh",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Doco memory plugin for DeepSeek Harness — turn your Doco knowledge base into a centralized, cross-device agent memory (recall / remember / context / init per Doco Memory Layout spec v1).",
   "keywords": [
     "doco",
