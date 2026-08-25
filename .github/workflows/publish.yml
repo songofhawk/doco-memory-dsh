@@ -19,10 +19,11 @@ jobs:
       id-token: write   # OIDC 可信发布必需
     steps:
       - uses: actions/checkout@v4
+      # 注意：不要传 registry-url——它会让 setup-node 导出 NODE_AUTH_TOKEN 机制，
+      # 干扰 OIDC 可信发布的自动检测；npm 默认 registry 即 registry.npmjs.org。
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org/
           package-manager-cache: false
       - name: 升级 npm（Trusted Publishing 需要 >= 11.5.1）
         run: npm install -g npm@latest && npm -v
