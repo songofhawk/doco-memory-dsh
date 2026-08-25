@@ -29,4 +29,8 @@ jobs:
         run: npm install -g npm@latest && npm -v
       - run: npm ci
       - run: npm test
+      - name: 诊断 OIDC 环境
+        run: |
+          echo "npm=$(npm -v) node=$(node -v)"
+          printenv | grep -iE 'ACTIONS_ID_TOKEN|GITHUB_ACTIONS' | sed 's/=.*/=<已设置>/' || echo '(无 OIDC 环境变量)'
       - run: npm publish
