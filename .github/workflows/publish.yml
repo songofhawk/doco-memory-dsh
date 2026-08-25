@@ -1,10 +1,10 @@
 name: Publish
 
 # 推送 main 即发布当前版本到 npm（Trusted Publishing / OIDC，无需任何 token）。
-# 注意：同版本重复发布会失败（npm 不允许覆盖），发布新版本请先 bump package.json。
-# 前置（一次性）：npmjs.com 包设置页 → Trusted Publisher → GitHub Actions：
-#   Organization or user: songofhawk | Repository: doco-memory-dsh
-#   Workflow filename: publish.yml | Allowed actions: npm publish
+# 版本未变时自动跳过 publish 步骤，不会因「同版本不可覆盖」而报错；
+# 发布新版本只需 bump package.json 后推送。
+# 前置（已完成）：npmjs.com 包设置页 → Trusted Publisher → GitHub Actions：
+#   songofhawk / doco-memory-dsh / publish.yml / Environment 留空 / 允许 npm publish。
 on:
   push:
     branches: [main]
@@ -24,13 +24,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          package-manager-cache: false
       - name: 升级 npm（Trusted Publishing 需要 >= 11.5.1）
         run: npm install -g npm@latest && npm -v
       - run: npm ci
       - run: npm test
-      - name: 诊断 OIDC 环境
+      - name: 检查版本是否已发布
+        id: check
         run: |
-          echo "npm=$(npm -v) node=$(node -v)"
-          printenv | grep -iE 'ACTIONS_ID_TOKEN|GITHUB_ACTIONS' | sed 's/=.*/=<已设置>/' || echo '(无 OIDC 环境变量)'
-      - run: npm publish --loglevel=verbose   # 诊断用，成功后移除
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "doco-memory-dsh@$VERSION" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "版本 $VERSION 已在 npm 上，跳过 publish"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - run: npm publish
+        if: steps.check.outputs.published != 'true'
