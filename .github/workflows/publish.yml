@@ -33,4 +33,4 @@ jobs:
         run: |
           echo "npm=$(npm -v) node=$(node -v)"
           printenv | grep -iE 'ACTIONS_ID_TOKEN|GITHUB_ACTIONS' | sed 's/=.*/=<已设置>/' || echo '(无 OIDC 环境变量)'
-      - run: npm publish
+      - run: npm publish --loglevel=verbose   # 诊断用，成功后移除
